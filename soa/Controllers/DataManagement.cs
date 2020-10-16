@@ -42,6 +42,7 @@ using ItemRevision = Teamcenter.Soa.Client.Model.Strong.ItemRevision;
 using Teamcenter.Services.Strong.Query._2007_06.SavedQuery;
 using Teamcenter.Services.Strong.Workflow;
 using Teamcenter.Services.Strong.Workflow._2008_06.Workflow;
+using cfg = soa.Entity.TCConfiguration;
 
 namespace soa.Controllers
 {
@@ -68,16 +69,15 @@ namespace soa.Controllers
             longDetail = codeNumber.Length < 2 ? ""
                         : (codeNumber.Substring(0, 2).CompareTo("80") >= 0 ? "" : longDetail);
             
-
             try
             {
-                
-
                 DataManagementService dmService = DataManagementService.getService(Session.getConnection());
 
                 //查询最新的ITEM版本
                 //未完成2
-                ModelObject LastestRevision = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
+                //ModelObject LastestRevision = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
+                ModelObject LastestRevision = findModel(cfg.get("query_builder_lastestRevisionById_name")
+                    , new string[] { cfg.get("query_builder_lastestRevisionById_queryKey") }, new string[] { codeNumber });
                 if ( null!= LastestRevision && !string.IsNullOrEmpty(LastestRevision.Uid))
                 {
 
@@ -90,11 +90,11 @@ namespace soa.Controllers
                     String item_revision_id = LastestRevision.GetProperty("item_revision_id").StringValue.ToString();
 
                     //查询是否存在未发布版本
-                    if (!release_status.Equals("TCM Released"))
+                    if (!release_status.Equals(cfg.get("publish_status_value")))
                     {
                         //发布
                         //未完成4
-                        workflow_publish("MyRelease", LastestRevision);
+                        workflow_publish(cfg.get("publish_workflow"), LastestRevision);
                     }
 
                     //创建新版本前，修改ITEM数据
@@ -122,7 +122,7 @@ namespace soa.Controllers
                     exAttr.Attributes = new Hashtable();
                     exAttr.ObjectType = "ItemRevision Master";      //对应哪个form表
                                                                     //未完成1
-                    exAttr.Attributes["user_data_2"] = productionType;  //需要替换
+                    exAttr.Attributes[cfg.get("exAttrName")] = productionType;  //需要替换
                     itemProperty.ExtendedAttributes = new ExtendedAttributes[] { exAttr };
 
                     //链接服务器创建Item
@@ -136,9 +136,11 @@ namespace soa.Controllers
                 }
 
                 //调用查询构建器，查询ITEM和ITEMRevision
-                ModelObject itemObj = findModel("Item ID", new string[] { "Item ID" }, new string[] { codeNumber });
+                ModelObject itemObj = findModel(cfg.get("query_builder_ItemById_name")
+                    , new string[] { cfg.get("query_builder_ItemById_queryKey") }, new string[] { codeNumber });
                 //未完成2
-                ModelObject itemReversion = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
+                ModelObject itemReversion = findModel(cfg.get("query_builder_lastestRevisionById_name")
+                    , new string[] { cfg.get("query_builder_lastestRevisionById_queryKey") }, new string[] { codeNumber });
                 if (null == itemObj || null == itemReversion)
                 {
                     return "查询构建器失败。";
@@ -150,7 +152,7 @@ namespace soa.Controllers
 
                 //发布-外购件
                 if( codeNumber.Length>=2 && (codeNumber.Substring(0, 2).CompareTo("80") < 0))
-                    workflow_publish("MyRelease", itemReversion);
+                    workflow_publish(cfg.get("publish_workflow"), LastestRevision);
 
 
 
@@ -168,7 +170,8 @@ namespace soa.Controllers
             try
             {
                 DataManagementService dmService = DataManagementService.getService(Session2.getConnection());
-                ModelObject itemObj = findModel("Item ID", new string[] { "Item ID" }, new string[] { codeNumber });
+                ModelObject itemObj = findModel(cfg.get("query_builder_ItemById_name")
+                    , new string[] { cfg.get("query_builder_ItemById_queryKey") }, new string[] { codeNumber });
                 var item = new ItemElementProperties();
                 item.ItemElement = itemObj;
                 item.Name = name;
@@ -238,7 +241,7 @@ namespace soa.Controllers
             //额外的表单属性
             PropertyNameValueInfo info = new PropertyNameValueInfo();
             //未完成1
-            info.PropertyName = "user_data_2";
+            info.PropertyName = cfg.get("exAttrName");
             info.PropertyValues = new string[] { productionType };
 
             rev.NewItemRevisionMasterProperties.PropertyValueInfo = new PropertyNameValueInfo[] { info };
@@ -268,8 +271,9 @@ namespace soa.Controllers
                 throw new ServiceException("DataManagementService.deleteObjects returned a partial error.");
         }
 
-        public void deleteItem(String codeNumber)
+        public String deleteItem(String codeNumber)
         {
+            String Msg = "执行成功";
             DataManagementService dmService = DataManagementService.getService(Session2.getConnection());
 
             ////删除前，取消发布
@@ -278,11 +282,18 @@ namespace soa.Controllers
             //workflow_publish("", itemReversion);
             
             //调用查询构建器，查询ITEM
-            ModelObject itemObj = findModel("Item ID", new string[] { "Item ID" }, new string[] { codeNumber });
+            ModelObject itemObj = findModel(cfg.get("query_builder_ItemById_name")
+                    , new string[] { cfg.get("query_builder_ItemById_queryKey") }, new string[] { codeNumber });
             ServiceData serviceData = dmService.DeleteObjects(new ModelObject[] { itemObj });
 
             if (serviceData.sizeOfPartialErrors() > 0)
-                throw new Exception("删除ITEM失败,已发布的ITEM不能删除或无权限删除:"+ serviceData.GetPartialError(0).Messages[0]);
+            {
+                Msg = "删除ITEM失败,已发布的ITEM不能删除或无权限删除:" + serviceData.GetPartialError(0).Messages[0];
+                throw new Exception("删除ITEM失败,已发布的ITEM不能删除或无权限删除:" + serviceData.GetPartialError(0).Messages[0]);       
+            }
+                
+
+            return Msg;
         }
 
 
@@ -374,7 +385,8 @@ namespace soa.Controllers
 
 
             //ModelObject user = findUser(userName);
-            ModelObject user = findModel("__WEB_find_user", new string[] { "User ID" }, new string[] { userName });
+            ModelObject user = findModel(cfg.get("query_builder_userByUname_name")
+                , new string[] { cfg.get("query_builder_userByUname_queryKey") }, new string[] { userName });
             if (null == user)
             {
                 throw new Exception("构建器查找用户失败，请确认申请人在TC是否存在。");
