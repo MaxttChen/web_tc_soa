@@ -1,0 +1,22 @@
+﻿{
+  "dbname": "infodba",
+  "dbpassword": "infodba",
+  "powerful_user_name": "maxtt",
+  "powerful_user_password": "maxtt",
+  "query_builder_lastestRevisionById": {
+    "name": "MY_WEB_ITEM_REVISION",
+    "queryKey": "iid"
+  },
+  "query_builder_ItemById": {
+    "name": "Item ID",
+    "queryKey": "Item ID"
+  },
+  "query_builder_userByUname": {
+    "name": "__WEB_find_user",
+    "queryKey": "User ID"
+  },
+  "ItemType": "Item",
+  "exAttrName": "user_data_2",
+  "publish_workflow": "MyRelease",
+  "publish_status_value": "TCM 已发布"
+}

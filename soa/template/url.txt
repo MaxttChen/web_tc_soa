@@ -1,0 +1,9 @@
+﻿1.创建ITEM
+方法：POST
+url：/Item/creteOrUpdateItem
+http://localhost:7019/Item/creteOrUpdateItem
+
+2.删除ITEM
+方法：GET
+url:/Item/deleteItem/codeNUmber
+http://localhost:7019/Item/deleteItem/codeNUmber
