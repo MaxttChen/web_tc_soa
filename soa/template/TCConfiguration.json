@@ -1,22 +1,17 @@
 ﻿{
+  "ip": "http://192.168.110.131:7001/tc",
   "dbname": "infodba",
   "dbpassword": "infodba",
   "powerful_user_name": "maxtt",
   "powerful_user_password": "maxtt",
-  "query_builder_lastestRevisionById": {
-    "name": "MY_WEB_ITEM_REVISION",
-    "queryKey": "iid"
-  },
-  "query_builder_ItemById": {
-    "name": "Item ID",
-    "queryKey": "Item ID"
-  },
-  "query_builder_userByUname": {
-    "name": "__WEB_find_user",
-    "queryKey": "User ID"
-  },
+  "query_builder_lastestRevisionById_name": "MY_WEB_ITEM_REVISION",
+  "query_builder_lastestRevisionById_queryKey": "iid",
+  "query_builder_ItemById_name": "Item ID",
+  "query_builder_ItemById_queryKey": "Item ID",
+  "query_builder_userByUname_name": "__WEB_find_user",
+  "query_builder_userByUname_queryKey": "User ID",
   "ItemType": "Item",
   "exAttrName": "user_data_2",
   "publish_workflow": "MyRelease",
-  "publish_status_value": "TCM 已发布"
+  "publish_status_value": "TCM Released"
 }

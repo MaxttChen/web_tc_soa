@@ -1,18 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
+using cfg = soa.Entity.TCConfiguration;
 
 namespace soa.Controllers
 {
     public class ItemController : Controller
     {
         public ContentResult Index(String id)
-        {          
+        {
             return Content(id + "connect successful.");
         }
 
@@ -45,29 +42,37 @@ namespace soa.Controllers
         /// <returns></returns>
         public String Handle(Action action)
         {
+            cfg.load();
             String Msg = "执行完成";
-            String serverHost = "http://192.168.110.131:7001/tc";
+            String serverHost = cfg.get("ip");
+            Teamcenter.ClientX.Session session = null;
+            Teamcenter.ClientX.Session2 session2 = null;           
             try
             {
-
-                Teamcenter.ClientX.Session session = new Teamcenter.ClientX.Session(serverHost);
-                Teamcenter.ClientX.Session2 session2 = new Teamcenter.ClientX.Session2(serverHost);
+                session = new Teamcenter.ClientX.Session(serverHost);
+                session2 = new Teamcenter.ClientX.Session2(serverHost);
 
                 // Establish a session with the Teamcenter Server
-                Teamcenter.Soa.Client.Model.Strong.User user = session.login("infodba", "infodba", "", "", "", "SoaAppX");
-                Teamcenter.Soa.Client.Model.Strong.User user2 = session2.login("maxtt", "maxtt", "", "", "", "SoaAppX");
-
+                //Teamcenter.Soa.Client.Model.Strong.User user = session.login("infodba", "infodba", "", "", "", "SoaAppX");
+                //Teamcenter.Soa.Client.Model.Strong.User user2 = session2.login("maxtt", "maxtt", "", "", "", "SoaAppX");
+                Teamcenter.Soa.Client.Model.Strong.User user = session.login(cfg.get("dbname"), cfg.get("dbpassword"), "", "", "", "SoaAppX");
+                Teamcenter.Soa.Client.Model.Strong.User user2 = session2.login(cfg.get("powerful_user_name"), cfg.get("powerful_user_password"), "", "", "", "SoaAppX");
+                
                 action.Invoke();
-
-                session.logout();
-                session2.logout();
             }
             catch (Exception e)
             {
-                return e.ToString();
+                Msg = e.ToString();
+            }
+            finally
+            {
+                if(null!=session)
+                    session.logout();
+                if (null != session2)
+                    session2.logout();
             }
 
-            return "执行完成";
+            return Msg;
         }
 
         public String GetPostContent()
