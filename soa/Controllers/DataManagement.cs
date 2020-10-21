@@ -22,9 +22,6 @@ using Teamcenter.Services.Strong.Core;
 using Teamcenter.Soa.Client.Model;
 
 using ImanQuery = Teamcenter.Soa.Client.Model.Strong.ImanQuery;
-using SavedQueriesResponse = Teamcenter.Services.Strong.Query._2007_09.SavedQuery.SavedQueriesResponse;
-using QueryInput = Teamcenter.Services.Strong.Query._2008_06.SavedQuery.QueryInput;
-using QueryResults = Teamcenter.Services.Strong.Query._2007_09.SavedQuery.QueryResults;
 
 using System.Collections;
 
@@ -32,16 +29,14 @@ using System.Collections;
 // Input and output structures for the service operations
 // Note: the different namespace from the service interface
 using Teamcenter.Services.Strong.Core._2006_03.DataManagement;
-using Teamcenter.Services.Strong.Core._2007_01.DataManagement;
 using Teamcenter.Services.Strong.Core._2008_06.DataManagement;
 
-using Teamcenter.Soa.Exceptions;
-
-using Item = Teamcenter.Soa.Client.Model.Strong.Item;
 using ItemRevision = Teamcenter.Soa.Client.Model.Strong.ItemRevision;
 using Teamcenter.Services.Strong.Query._2007_06.SavedQuery;
 using Teamcenter.Services.Strong.Workflow;
 using Teamcenter.Services.Strong.Workflow._2008_06.Workflow;
+using Teamcenter.Services.Loose.Core._2006_03.FileManagement;
+using Teamcenter.Soa.Client;
 
 namespace soa.Controllers
 {
@@ -67,11 +62,9 @@ namespace soa.Controllers
             //处理详细描述,10-79插入详细描述，80-90不插入详细描述
             longDetail = codeNumber.Length < 2 ? ""
                         : (codeNumber.Substring(0, 2).CompareTo("80") >= 0 ? "" : longDetail);
-            
-
+           
             try
             {
-                
 
                 DataManagementService dmService = DataManagementService.getService(Session.getConnection());
 
@@ -80,13 +73,22 @@ namespace soa.Controllers
                 ModelObject LastestRevision = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
                 if ( null!= LastestRevision && !string.IsNullOrEmpty(LastestRevision.Uid))
                 {
-
+                    
                     dmService.GetProperties(new ModelObject[] { LastestRevision  }, new string[] { "release_status_list" });
                     dmService.GetProperties(new ModelObject[] { LastestRevision }, new string[] { "item_revision_id" });
 
-                    ModelObject release_status_obj = LastestRevision.GetProperty("release_status_list").ModelObjectArrayValue[0];
-                    dmService.GetProperties(new ModelObject[] { release_status_obj }, new string[] { "name" });
-                    String release_status = release_status_obj.GetProperty("name").StringValue;
+                    //如果名称、规格相同，不执行更新。
+                    if (LastestRevision.GetProperty("object_name").StringValue.Equals(CodeName)
+                        && LastestRevision.GetProperty("desc").StringValue.Equals(longDetail))
+                        return erroMsg;
+
+                    ModelObject release_status_obj = null;
+                    if (LastestRevision.GetProperty("release_status_list").ModelObjectArrayValue.Length>0)
+                    {
+                        release_status_obj = LastestRevision.GetProperty("release_status_list").ModelObjectArrayValue[0];
+                        dmService.GetProperties(new ModelObject[] { release_status_obj }, new string[] { "name" });
+                    } 
+                    String release_status = null== release_status_obj ? "" : release_status_obj.GetProperty("name").StringValue;
                     String item_revision_id = LastestRevision.GetProperty("item_revision_id").StringValue.ToString();
 
                     //查询是否存在未发布版本
@@ -133,6 +135,15 @@ namespace soa.Controllers
                         return "创建ITEM失败。" + response.ServiceData.GetPartialError(0).Messages[0];
                     }
                     //结束新增ITEM
+
+                    //新增完后附加文件。
+                    ModelObject itemReversion2add = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
+                    //创建dataset并增加内容
+                    ModelObject datasets = createEmptyFile("Text",codeNumber, "d:\\maxtt.txt", "Text");
+                    //创建关联关系
+                    createRelations(itemReversion2add, datasets, "IMAN_specification");
+                    //修改所有者
+                    changeOnwer(ReqName, datasets);
                 }
 
                 //调用查询构建器，查询ITEM和ITEMRevision
@@ -298,12 +309,8 @@ namespace soa.Controllers
         public ModelObject findModel(String queryName,String[] keys,string[] values)
         {
             ImanQuery query = null;
-
-            ModelObject resultObj = null;
-
             // Get the service stub
             SavedQueryService queryService = SavedQueryService.getService(Session.getConnection());
-            DataManagementService dmService = DataManagementService.getService(Session.getConnection());
 
             try
             {
@@ -355,7 +362,8 @@ namespace soa.Controllers
 
 
                 ExecuteSavedQueriesResponse savedQueryResult = queryService.ExecuteSavedQueries(savedQueryInput);
-                SavedQueryResults found = savedQueryResult.ArrayOfResults[0];
+                SavedQueryResults found = savedQueryResult.ArrayOfResults.Length > 0 ? 
+                    savedQueryResult.ArrayOfResults[0] : new SavedQueryResults();
 
                 ModelObject[] modelObjs = found.Objects;
 
@@ -409,6 +417,76 @@ namespace soa.Controllers
             }
         }
 
+        public ModelObject createEmptyFile(String datasetType, String datasetName, String filePath, String fileRefName)
+        {
+            var dmService = DataManagementService.getService(Session.getConnection());
+            //FileManagementUtility fmsFileManagement = new FileManagementUtility(Session.getConnection());
+            FileManagementUtility fmsFileManagement = new FileManagementUtility(Session.getConnection(), null, null, new[] { "http://TC12:4544" }, "D:\\");
+            // Create a Dataset
+            DatasetProperties2 props = new DatasetProperties2();
+            //props.ClientId = "datasetWriteTixTestClientId";
+            //props.Type = "Text";
+            //props.Name = "Sample-FMS-Upload-maxtt";
+            //props.Description = "Testing put File";
+            props.ClientId = datasetName  + "ClientId";
+            props.Type = datasetType;
+            props.Name = datasetName + "--" + datasetType;
+            props.Description = "";
+            DatasetProperties2[] currProps = { props };
+            CreateDatasetsResponse resp = dmService.CreateDatasets2(currProps);
+
+            // Create a file to associate with dataset
+            
+
+            DatasetFileInfo fileInfo = new DatasetFileInfo();
+            fileInfo.ClientId = "file_1";
+            //fileInfo.FileName = "./template/url.txt";
+            fileInfo.FileName = filePath;
+            fileInfo.NamedReferencedName = fileRefName;
+            fileInfo.IsText = true;
+            fileInfo.AllowReplace = false;
+
+            DatasetFileInfo[] fileInfos = { fileInfo };
+
+            GetDatasetWriteTicketsInputData inputData = new GetDatasetWriteTicketsInputData();
+            inputData.Dataset = resp.Output[0].Dataset;
+            inputData.CreateNewVersion = false;
+            inputData.DatasetFileInfos = fileInfos;
+
+            GetDatasetWriteTicketsInputData[] inputs = { inputData };
+
+            ServiceData response = fmsFileManagement.PutFiles(inputs);
+
+            if (response.sizeOfPartialErrors() > 0)
+                System.Console.Out.WriteLine("FileManagementService single upload returned partial errrors: " + response.sizeOfPartialErrors());
+
+
+            //add relation
+            ModelObject datasets =  inputs[0].Dataset ;
+
+            
+
+            return datasets;
+        }
+
+
+        private void createRelations(ModelObject modObjprimary, ModelObject modObjSecondary, String sRelationName)
+        {
+            var dmService = DataManagementService.getService(Session.getConnection());
+
+
+            Relationship[] relationShips = new Relationship[1];
+            relationShips[0] = new Relationship();
+            relationShips[0].ClientId = "One" + (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+            relationShips[0].PrimaryObject = modObjprimary;
+            relationShips[0].SecondaryObject = modObjSecondary;
+            relationShips[0].RelationType = sRelationName;
+            CreateRelationsResponse response = dmService.CreateRelations(relationShips);
+            if (response.ServiceData.sizeOfPartialErrors() > 0)
+            {
+                //ProcessServiceDataForPartialErrors(response.serviceData);
+            }
+        }
     }   
 
         

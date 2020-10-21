@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net461</TargetFramework>
+    <TargetFramework>net462</TargetFramework>
     <DebugType>full</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="log4net" Version="2.0.8" />
     <PackageReference Include="Microsoft.AspNetCore" Version="2.1.7" />
     <PackageReference Include="Microsoft.AspNetCore.CookiePolicy" Version="2.1.14" />
     <PackageReference Include="Microsoft.AspNetCore.HttpsPolicy" Version="2.1.1" />
@@ -14,41 +15,44 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="log4net">
-      <HintPath>D:\log4net.dll</HintPath>
+    <Reference Include="FCCNetClientProxy4064">
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\FCCNetClientProxy4064.dll</HintPath>
+    </Reference>
+    <Reference Include="FMSNetTicket40">
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\FMSNetTicket40.dll</HintPath>
+    </Reference>
+    <Reference Include="FSCNetClientProxy40">
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\FSCNetClientProxy40.dll</HintPath>
     </Reference>
     <Reference Include="TcMemNetBinding4064">
-      <HintPath>D:\HelloTeamcenter\libs\TcMemNetBinding4064.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcMemNetBinding4064.dll</HintPath>
     </Reference>
     <Reference Include="TcServerNetBinding4064">
-      <HintPath>D:\HelloTeamcenter\libs\TcServerNetBinding4064.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcServerNetBinding4064.dll</HintPath>
     </Reference>
     <Reference Include="TcServerNetBindingInterface40">
-      <HintPath>D:\HelloTeamcenter\libs\TcServerNetBindingInterface40.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcServerNetBindingInterface40.dll</HintPath>
     </Reference>
     <Reference Include="TcSoaClient">
-      <HintPath>D:\HelloTeamcenter\libs\TcSoaClient.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcSoaClient.dll</HintPath>
     </Reference>
     <Reference Include="TcSoaCommon">
-      <HintPath>D:\HelloTeamcenter\libs\TcSoaCommon.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcSoaCommon.dll</HintPath>
     </Reference>
     <Reference Include="TcSoaCoreStrong">
-      <HintPath>D:\HelloTeamcenter\libs\TcSoaCoreStrong.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcSoaCoreStrong.dll</HintPath>
     </Reference>
-    <Reference Include="TcSoaCoreTypes">
-      <HintPath>D:\HelloTeamcenter\libs\TcSoaCoreTypes.dll</HintPath>
+    <Reference Include="TcSoaFMS64">
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcSoaFMS64.dll</HintPath>
     </Reference>
     <Reference Include="TcSoaQueryStrong">
-      <HintPath>D:\HelloTeamcenter\libs\TcSoaQueryStrong.dll</HintPath>
-    </Reference>
-    <Reference Include="TcSoaQueryTypes">
-      <HintPath>D:\HelloTeamcenter\libs\TcSoaQueryTypes.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcSoaQueryStrong.dll</HintPath>
     </Reference>
     <Reference Include="TcSoaStrongModel">
-      <HintPath>D:\HelloTeamcenter\libs\TcSoaStrongModel.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcSoaStrongModel.dll</HintPath>
     </Reference>
     <Reference Include="TcSoaWorkflowStrong">
-      <HintPath>D:\HelloTeamcenter\libs\TcSoaWorkflowStrong.dll</HintPath>
+      <HintPath>..\..\..\TC\TC\培训\soa_client\net\libs\TcSoaWorkflowStrong.dll</HintPath>
     </Reference>
   </ItemGroup>
 
@@ -56,6 +60,6 @@
     <Folder Include="clientx\" />
   </ItemGroup>
 
-  <ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>
+  <ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" template_4createitem80_1json__JsonSchema="https://json.schemastore.org/ansible-collection-galaxy" /></VisualStudio></ProjectExtensions>
 
 </Project>
