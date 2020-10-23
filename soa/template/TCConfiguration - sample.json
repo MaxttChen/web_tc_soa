@@ -1,44 +1,42 @@
 ﻿{
-  "ip": "http://193.1.11.128:7001/tc",
+  "ip": "http://192.168.110.131:7001/tc",
   "dbname": "infodba",
   "dbpassword": "infodba",
-  "powerful_user_name": "plm005",
-  "powerful_user_password": "plm005",
+  "powerful_user_name": "maxtt",
+  "powerful_user_password": "maxtt",
   "query_builder_lastestRevisionById_name": "MY_WEB_ITEM_REVISION",
   "query_builder_lastestRevisionById_queryKey": "iid",
   "query_builder_ItemById_name": "Item ID",
   "query_builder_ItemById_queryKey": "Item ID",
   "query_builder_userByUname_name": "__WEB_find_user",
   "query_builder_userByUname_queryKey": "User ID",
-  "LBJType": "HF8_LBJ",
-  "CPTyep": "HF8_CP",
-  "exAttr_productionType": "hf8_WL_REV_013",
-  "exAttr_detail": "hf8_WL_REV_001",
-  "publish_workflow": "dba02-快速发布-发布",
-  "publish_workflow2": "dba02-快速发布-样机",
-  "publish_status_value": "HF8_FB",
+  "LBJType": "Item",
+  "CPTyep": "Item",
+  "exAttrName": "user_data_2",
+  "publish_workflow": "MyRelease",
+  "publish_status_value": "TCM Released",
   "uploadFile_part": [
     {
       "fileType": "par",
-      "datasetType": "Solid Edge Part",
+      "datasetType": "Text",
       "filePath": "./template/HG_part.par",
-      "fileRefName": "SE-part",
+      "fileRefName": "Text",
       "relationType": "IMAN_specification"
     },
     {
       "fileType": "psm",
-      "datasetType": "Solid Edge Sheet Metal",
+      "datasetType": "Text",
       "filePath": "./template/HG_psm.psm",
-      "fileRefName": "SE-sheetMetal",
+      "fileRefName": "Text",
       "relationType": "IMAN_specification"
     }
   ],
   "uploadFile_asm": [
     {
       "fileType": "asm",
-      "datasetType": "Solid Edge Assembly",
+      "datasetType": "Text",
       "filePath": "./template/HG_asm.asm",
-      "fileRefName": "SE-assembly",
+      "fileRefName": "Text",
       "relationType": "IMAN_specification"
     }
   ]

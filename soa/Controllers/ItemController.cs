@@ -19,10 +19,25 @@ namespace soa.Controllers
             var item = JObject.Parse(GetPostContent()).ToObject<Entity.Item>();
             //AOP封装
             var result = Handle(() => 
-            new DataManagement().createTCItem("Item", item.number, item.name, item.detail, item.unit, item.proType, item.reqName)
+            new DataManagement().createTCItem(item.number, item.name, item.detail, item.unit, item.proType, item.reqName)
             );
             return Content(result);
         }
+
+        [HttpPost]
+        public ContentResult demo()
+        {
+            var item = JObject.Parse(GetPostContent()).ToObject<Entity.Item>();
+            //AOP封装
+            //var result = Handle(() =>
+            //{
+            //    new DataManagement().demo();
+            //}
+            //);
+            return Content("");
+        }
+
+
 
         [HttpGet]
         public ContentResult deleteItem(String id)
@@ -40,7 +55,7 @@ namespace soa.Controllers
         /// </summary>
         /// <param name="action"></param>
         /// <returns></returns>
-        public String Handle(Action action)
+        public String Handle(Func<String> action)
         {
             cfg.load();
             String Msg = "执行完成";
@@ -52,13 +67,11 @@ namespace soa.Controllers
                 session = new Teamcenter.ClientX.Session(serverHost);
                 session2 = new Teamcenter.ClientX.Session2(serverHost);
 
-                // Establish a session with the Teamcenter Server
-                //Teamcenter.Soa.Client.Model.Strong.User user = session.login("infodba", "infodba", "", "", "", "SoaAppX");
-                //Teamcenter.Soa.Client.Model.Strong.User user2 = session2.login("maxtt", "maxtt", "", "", "", "SoaAppX");
                 Teamcenter.Soa.Client.Model.Strong.User user = session.login(cfg.get("dbname"), cfg.get("dbpassword"), "", "", "", "SoaAppX");
                 Teamcenter.Soa.Client.Model.Strong.User user2 = session2.login(cfg.get("powerful_user_name"), cfg.get("powerful_user_password"), "", "", "", "SoaAppX");
-                
-                action.Invoke();
+
+                var res = action.Invoke();
+                Msg = res.Equals("") ? Msg : res;
             }
             catch (Exception e)
             {

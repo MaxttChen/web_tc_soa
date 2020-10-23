@@ -60,6 +60,6 @@
     <Folder Include="clientx\" />
   </ItemGroup>
 
-  <ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" template_4createitem80_1json__JsonSchema="https://json.schemastore.org/ansible-collection-galaxy" /></VisualStudio></ProjectExtensions>
+  <ProjectExtensions><VisualStudio><UserProperties appsettings_1json__JsonSchema="" template_4createitem80_1json__JsonSchema="https://json.schemastore.org/ansible-collection-galaxy" template_4tcconfiguration_1json__JsonSchema="https://jenkins-x.io/schemas/jx-requirements.json" /></VisualStudio></ProjectExtensions>
 
 </Project>

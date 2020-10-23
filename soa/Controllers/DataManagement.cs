@@ -35,8 +35,11 @@ using ItemRevision = Teamcenter.Soa.Client.Model.Strong.ItemRevision;
 using Teamcenter.Services.Strong.Query._2007_06.SavedQuery;
 using Teamcenter.Services.Strong.Workflow;
 using Teamcenter.Services.Strong.Workflow._2008_06.Workflow;
-using Teamcenter.Services.Loose.Core._2006_03.FileManagement;
+using cfg = soa.Entity.TCConfiguration;
 using Teamcenter.Soa.Client;
+using Teamcenter.Services.Loose.Core._2006_03.FileManagement;
+using System.IO;
+using Newtonsoft.Json.Linq;
 
 namespace soa.Controllers
 {
@@ -56,58 +59,67 @@ namespace soa.Controllers
         /// <param name="unit">单位</param>
         /// <param name="productionType">物料属性（自制、外购、委外）</param>
         /// <param name="ReqName">物料申请人</param>
-        public String createTCItem(String itemType, String codeNumber, String CodeName, String longDetail, String unit, String productionType, String ReqName)
+        public String createTCItem(String codeNumber, String CodeName, String longDetail, String unit, String productionType, String ReqName)
         {
             String erroMsg = "";
             //处理详细描述,10-79插入详细描述，80-90不插入详细描述
             longDetail = codeNumber.Length < 2 ? ""
                         : (codeNumber.Substring(0, 2).CompareTo("80") >= 0 ? "" : longDetail);
-           
+
+            String itemType = codeNumber.Length >= 2 && codeNumber.Substring(0, 2).Equals("80") ?
+                cfg.get("CPTyep") : cfg.get("LBJType");
+
             try
             {
+                
 
                 DataManagementService dmService = DataManagementService.getService(Session.getConnection());
 
                 //查询最新的ITEM版本
                 //未完成2
-                ModelObject LastestRevision = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
+                //ModelObject LastestRevision = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
+                ModelObject LastestRevision = findModel(cfg.get("query_builder_lastestRevisionById_name")
+                    , new string[] { cfg.get("query_builder_lastestRevisionById_queryKey") }, new string[] { codeNumber });
                 if ( null!= LastestRevision && !string.IsNullOrEmpty(LastestRevision.Uid))
-                {
-                    
+                {      
                     dmService.GetProperties(new ModelObject[] { LastestRevision  }, new string[] { "release_status_list" });
                     dmService.GetProperties(new ModelObject[] { LastestRevision }, new string[] { "item_revision_id" });
-
+                    dmService.GetProperties(new ModelObject[] { LastestRevision }, new string[] { "object_name" }); 
+                    dmService.GetProperties(new ModelObject[] { LastestRevision }, new string[] { "IMAN_master_form_rev" });
+                    var master = LastestRevision.GetProperty("IMAN_master_form_rev").ModelObjectArrayValue[0];
+                    dmService.GetProperties(new ModelObject[] { master }, new string[] { cfg.get("exAttr_detail") });
+                    dmService.GetProperties(new ModelObject[] { LastestRevision }, new string[] { "IMAN_specification" });                    
+                    String item_revision_id = LastestRevision.GetProperty("item_revision_id").StringValue.ToString();
+                    
                     //如果名称、规格相同，不执行更新。
                     if (LastestRevision.GetProperty("object_name").StringValue.Equals(CodeName)
-                        && LastestRevision.GetProperty("desc").StringValue.Equals(longDetail))
+                        && master.GetProperty(cfg.get("exAttr_detail")).StringValue.Equals(longDetail))
                         return erroMsg;
+
+                    if (LastestRevision.GetProperty("IMAN_specification").ModelObjectArrayValue.Length > 0)
+                    {
+                        return codeNumber + "/" + item_revision_id + "：有图纸，请在TC中更新。";
+                    }
 
                     ModelObject release_status_obj = null;
                     if (LastestRevision.GetProperty("release_status_list").ModelObjectArrayValue.Length>0)
                     {
                         release_status_obj = LastestRevision.GetProperty("release_status_list").ModelObjectArrayValue[0];
                         dmService.GetProperties(new ModelObject[] { release_status_obj }, new string[] { "name" });
-                    } 
-                    String release_status = null== release_status_obj ? "" : release_status_obj.GetProperty("name").StringValue;
-                    String item_revision_id = LastestRevision.GetProperty("item_revision_id").StringValue.ToString();
+                    }
+                    String release_status = null == release_status_obj ? "" : release_status_obj.GetProperty("name").StringValue;
 
                     //查询是否存在未发布版本
-                    if (!release_status.Equals("TCM Released"))
-                    {
-                        //发布
-                        //未完成4
-                        workflow_publish("MyRelease", LastestRevision);
-                    }
+                    if (!release_status.Equals(cfg.get("publish_status_value")))
+                        workflow_publish(cfg.get("publish_workflow"), LastestRevision);
 
                     //创建新版本前，修改ITEM数据
                     updateItem(codeNumber, CodeName, longDetail);
                     //创建新版本
                     reviseItem(LastestRevision, CodeName, longDetail, productionType, item_revision_id);
-
                 }
                 else
                 {
-                    //如果不存在则新增
 
                     //开始新增ITEM
                     //根据物料号创建ITEMID
@@ -116,16 +128,22 @@ namespace soa.Controllers
                     itemProperty.ItemId = codeNumber;   //物料代码
                     itemProperty.Name = CodeName;    //物料名称
                     itemProperty.RevId = "00";    //版本
-                    itemProperty.Description = longDetail;    //描述
+                    itemProperty.Description = "";    //描述
                     itemProperty.Uom = unit;  //单位
 
                     //增加额外属性
                     ExtendedAttributes exAttr = new ExtendedAttributes();
                     exAttr.Attributes = new Hashtable();
-                    exAttr.ObjectType = "ItemRevision Master";      //对应哪个form表
-                                                                    //未完成1
-                    exAttr.Attributes["user_data_2"] = productionType;  //需要替换
-                    itemProperty.ExtendedAttributes = new ExtendedAttributes[] { exAttr };
+                    exAttr.ObjectType = itemType + "RevisionMaster";      //对应哪个form表
+                    exAttr.Attributes[cfg.get("exAttr_productionType")] = productionType;  //需要替换
+
+                    //增加额外属性
+                    ExtendedAttributes exAttr2 = new ExtendedAttributes();
+                    exAttr2.Attributes = new Hashtable();
+                    exAttr2.ObjectType = itemType + "RevisionMaster";      //对应哪个form表
+                    exAttr2.Attributes[cfg.get("exAttr_detail")] = longDetail;  //需要替换
+
+                    itemProperty.ExtendedAttributes = new ExtendedAttributes[] { exAttr, exAttr2 };
 
                     //链接服务器创建Item
                     CreateItemsResponse response = dmService.CreateItems(new ItemProperties[] { itemProperty }, null, "");
@@ -137,19 +155,41 @@ namespace soa.Controllers
                     //结束新增ITEM
 
                     //新增完后附加文件。
-                    ModelObject itemReversion2add = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
-                    //创建dataset并增加内容
-                    ModelObject datasets = createEmptyFile("Text",codeNumber, "d:\\maxtt.txt", "Text");
-                    //创建关联关系
-                    createRelations(itemReversion2add, datasets, "IMAN_specification");
-                    //修改所有者
-                    changeOnwer(ReqName, datasets);
+                    ModelObject itemReversion2add = findModel(cfg.get("query_builder_lastestRevisionById_name")
+                    , new string[] { cfg.get("query_builder_lastestRevisionById_queryKey") }, new string[] { codeNumber });
+
+                    //ModelObject datasets = createEmptyFile("Text",codeNumber, "./template/url.txt", "Text");
+                    //createRelations(itemReversion2add, datasets, "IMAN_specification");
+                    //changeOnwer(ReqName, datasets);
+
+                    //创建dataset并关联，修改所有者
+                    
+                    if(codeNumber.Length > 4 &&
+                        //codeNumber.Substring(0,2).CompareTo("80") >= 0)
+                        codeNumber.Substring(0, 2).Equals("80"))
+                    {
+                        var subCodeNumber = codeNumber.Substring(0, 4);
+                        var uploadCfgPramary = subCodeNumber.Equals("8102") || subCodeNumber.Equals("8301") ?
+                            "uploadFile_part" : "uploadFile_asm";
+                        var cfgList = cfg.tc[uploadCfgPramary].ToObject<ArrayList>();
+                        foreach (var uploadObj in cfgList)
+                        {
+                            var uploadCfg = JObject.Parse(uploadObj.ToString());
+                            ModelObject datasets_temp = createEmptyFile(uploadCfg["datasetType"].ToString()
+                                , uploadCfg["fileType"].ToString() + "/" + codeNumber
+                                , uploadCfg["filePath"].ToString()
+                                , uploadCfg["fileRefName"].ToString());
+                            createRelations(itemReversion2add, datasets_temp, uploadCfg["relationType"].ToString());
+                            changeOnwer(ReqName, datasets_temp);
+                        }
+                    }
                 }
 
                 //调用查询构建器，查询ITEM和ITEMRevision
-                ModelObject itemObj = findModel("Item ID", new string[] { "Item ID" }, new string[] { codeNumber });
-                //未完成2
-                ModelObject itemReversion = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
+                ModelObject itemObj = findModel(cfg.get("query_builder_ItemById_name")
+                    , new string[] { cfg.get("query_builder_ItemById_queryKey") }, new string[] { codeNumber });
+                ModelObject itemReversion = findModel(cfg.get("query_builder_lastestRevisionById_name")
+                    , new string[] { cfg.get("query_builder_lastestRevisionById_queryKey") }, new string[] { codeNumber });               
                 if (null == itemObj || null == itemReversion)
                 {
                     return "查询构建器失败。";
@@ -161,17 +201,34 @@ namespace soa.Controllers
 
                 //发布-外购件
                 if( codeNumber.Length>=2 && (codeNumber.Substring(0, 2).CompareTo("80") < 0))
-                    workflow_publish("MyRelease", itemReversion);
-
-
-
+                    workflow_publish(cfg.get("publish_workflow"), itemReversion);
             }
             catch(Exception e)
             {
+                deleteItem(codeNumber);
                 throw e;
             }
 
             return erroMsg;
+        }
+
+        public string demo()
+        {
+            string res = string.Empty;
+            DataManagementService dmService = DataManagementService.getService(Session2.getConnection());
+            try
+            {
+                //未完成2
+                ModelObject itemReversion = findModel(cfg.get("query_builder_lastestRevisionById_name")
+                    , new string[] { cfg.get("query_builder_lastestRevisionById_queryKey") }, new string[] { "JLD100158" });
+                var data = dmService.GetProperties(new ModelObject[] { itemReversion }, new string[] { "WL_REV_013" });
+                res = itemReversion.GetProperty("").ModelObjectValue.Uid;
+            }
+            catch(Exception e)
+            {
+                res = "";
+            }
+            return res;
         }
 
         public void updateItem(String codeNumber, String name, String longDetail)
@@ -179,13 +236,14 @@ namespace soa.Controllers
             try
             {
                 DataManagementService dmService = DataManagementService.getService(Session2.getConnection());
-                ModelObject itemObj = findModel("Item ID", new string[] { "Item ID" }, new string[] { codeNumber });
+                ModelObject itemObj = findModel(cfg.get("query_builder_ItemById_name")
+                    , new string[] { cfg.get("query_builder_ItemById_queryKey") }, new string[] { codeNumber });
                 var item = new ItemElementProperties();
                 item.ItemElement = itemObj;
                 item.Name = name;
-                Hashtable kv = new Hashtable();
-                kv.Add("object_desc", longDetail);
-                item.ItemElemAttributes = kv;
+                //Hashtable kv = new Hashtable();
+                //kv.Add("object_desc", longDetail);
+                //item.ItemElemAttributes = kv;
                 CreateOrUpdateItemElementsResponse rsp = dmService.CreateOrUpdateItemElements(new ItemElementProperties[] { item });
 
             }
@@ -217,7 +275,7 @@ namespace soa.Controllers
             contextData.AttachmentTypes = arrTypes; //Types of attachment  EPM_target_attachment (target attachment) and EPM_reference_attachment (reference attachment).
             contextData.ProcessTemplate = wfTemplate;//"ReleaseObjectsWorkflow";
             
-            InstanceInfo instanceResponse = wfService.CreateInstance(true, null, "processName-maxtt-demo", null, "processDescription-maxtt-demo", contextData);
+            InstanceInfo instanceResponse = wfService.CreateInstance(true, null, "maxtt-syn-process", null, "", contextData);
 
             if (instanceResponse.ServiceData.sizeOfPartialErrors() == 0)
             {
@@ -241,18 +299,21 @@ namespace soa.Controllers
 
             ReviseInfo rev = new ReviseInfo();
             rev.BaseItemRevision = new ItemRevision(null, obj.Uid);
-            rev.ClientId = Name + "--" + newVersionNumber;
-            rev.Description = longDetail;
+            rev.ClientId = Name + "/" + newVersionNumber;
+            rev.Description = "";
             rev.Name = Name;
             rev.NewRevId = newVersionNumber;
 
             //额外的表单属性
             PropertyNameValueInfo info = new PropertyNameValueInfo();
-            //未完成1
-            info.PropertyName = "user_data_2";
+            info.PropertyName = cfg.get("exAttr_productionType");
             info.PropertyValues = new string[] { productionType };
 
-            rev.NewItemRevisionMasterProperties.PropertyValueInfo = new PropertyNameValueInfo[] { info };
+            PropertyNameValueInfo info2 = new PropertyNameValueInfo();
+            info2.PropertyName = cfg.get("exAttr_detail");
+            info2.PropertyValues = new string[] { longDetail };
+
+            rev.NewItemRevisionMasterProperties.PropertyValueInfo = new PropertyNameValueInfo[] { info, info2 };
 
             // *****************************
             ReviseResponse2 revised = dmService.Revise2(new ReviseInfo[] { rev });
@@ -279,8 +340,9 @@ namespace soa.Controllers
                 throw new ServiceException("DataManagementService.deleteObjects returned a partial error.");
         }
 
-        public void deleteItem(String codeNumber)
+        public String deleteItem(String codeNumber)
         {
+            String Msg = "执行成功";
             DataManagementService dmService = DataManagementService.getService(Session2.getConnection());
 
             ////删除前，取消发布
@@ -289,11 +351,18 @@ namespace soa.Controllers
             //workflow_publish("", itemReversion);
             
             //调用查询构建器，查询ITEM
-            ModelObject itemObj = findModel("Item ID", new string[] { "Item ID" }, new string[] { codeNumber });
+            ModelObject itemObj = findModel(cfg.get("query_builder_ItemById_name")
+                    , new string[] { cfg.get("query_builder_ItemById_queryKey") }, new string[] { codeNumber });
             ServiceData serviceData = dmService.DeleteObjects(new ModelObject[] { itemObj });
 
-            if (serviceData.sizeOfPartialErrors() > 0)
-                throw new Exception("删除ITEM失败,已发布的ITEM不能删除或无权限删除:"+ serviceData.GetPartialError(0).Messages[0]);
+            //if (serviceData.sizeOfPartialErrors() > 0)
+            //{
+            //    Msg = "删除ITEM失败,已发布的ITEM不能删除或无权限删除:" + serviceData.GetPartialError(0).Messages[0];
+            //    throw new Exception("删除ITEM失败,已发布的ITEM不能删除或无权限删除:" + serviceData.GetPartialError(0).Messages[0]);       
+            //}
+                
+
+            return Msg;
         }
 
 
@@ -382,7 +451,8 @@ namespace soa.Controllers
 
 
             //ModelObject user = findUser(userName);
-            ModelObject user = findModel("__WEB_find_user", new string[] { "User ID" }, new string[] { userName });
+            ModelObject user = findModel(cfg.get("query_builder_userByUname_name")
+                , new string[] { cfg.get("query_builder_userByUname_queryKey") }, new string[] { userName });
             if (null == user)
             {
                 throw new Exception("构建器查找用户失败，请确认申请人在TC是否存在。");
@@ -420,7 +490,6 @@ namespace soa.Controllers
         public ModelObject createEmptyFile(String datasetType, String datasetName, String filePath, String fileRefName)
         {
             var dmService = DataManagementService.getService(Session.getConnection());
-            //FileManagementUtility fmsFileManagement = new FileManagementUtility(Session.getConnection());
             FileManagementUtility fmsFileManagement = new FileManagementUtility(Session.getConnection(), null, null, new[] { "http://TC12:4544" }, "D:\\");
             // Create a Dataset
             DatasetProperties2 props = new DatasetProperties2();
@@ -430,18 +499,21 @@ namespace soa.Controllers
             //props.Description = "Testing put File";
             props.ClientId = datasetName  + "ClientId";
             props.Type = datasetType;
-            props.Name = datasetName + "--" + datasetType;
+            props.Name = datasetName ;
             props.Description = "";
             DatasetProperties2[] currProps = { props };
             CreateDatasetsResponse resp = dmService.CreateDatasets2(currProps);
 
             // Create a file to associate with dataset
-            
+            var file = new FileInfo(filePath);
+
+            if (!file.Exists)
+                throw new Exception("要上传的文件不存在，上传文件失败！");
 
             DatasetFileInfo fileInfo = new DatasetFileInfo();
             fileInfo.ClientId = "file_1";
             //fileInfo.FileName = "./template/url.txt";
-            fileInfo.FileName = filePath;
+            fileInfo.FileName = file.FullName;
             fileInfo.NamedReferencedName = fileRefName;
             fileInfo.IsText = true;
             fileInfo.AllowReplace = false;
