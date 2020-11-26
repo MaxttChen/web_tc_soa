@@ -7,7 +7,7 @@
       "sslPort": 0
     },
     "iisExpress": {
-      "applicationUrl": "http://localhost:7019",
+      "applicationUrl": "http://localhost:7020",
       "sslPort": 0
     }
   },

@@ -16,28 +16,22 @@ namespace soa.Controllers
         [HttpPost]
         public ContentResult creteOrUpdateItem()
         {
-            var item = JObject.Parse(GetPostContent()).ToObject<Entity.Item>();
-            //AOP封装
-            var result = Handle(() => 
-            new DataManagement().createTCItem(item.number, item.name, item.detail, item.unit, item.proType, item.reqName)
-            );
+            var result = "";
+            try
+            {
+                var item = JObject.Parse(GetPostContent()).ToObject<Entity.Item>();
+                //AOP封装
+                result = Handle(() =>
+                new DataManagement().createTCItem(item.number, item.name, item.detail, item.unit, item.proType, item.reqName)
+                );
+            }
+            catch(Exception e)
+            {
+                result = e.ToString();
+            }
+            
             return Content(result);
         }
-
-        [HttpPost]
-        public ContentResult demo()
-        {
-            var item = JObject.Parse(GetPostContent()).ToObject<Entity.Item>();
-            //AOP封装
-            //var result = Handle(() =>
-            //{
-            //    new DataManagement().demo();
-            //}
-            //);
-            return Content("");
-        }
-
-
 
         [HttpGet]
         public ContentResult deleteItem(String id)
@@ -58,7 +52,7 @@ namespace soa.Controllers
         public String Handle(Func<String> action)
         {
             cfg.load();
-            String Msg = "执行完成";
+            String Msg = "执行成功";
             String serverHost = cfg.get("ip");
             Teamcenter.ClientX.Session session = null;
             Teamcenter.ClientX.Session2 session2 = null;           

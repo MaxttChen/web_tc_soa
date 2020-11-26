@@ -34,6 +34,8 @@ namespace soa.Entity
                 jsonText = reader.ReadToEnd();
             }
             tc = JObject.Parse(jsonText);
+
+
         }
 
     }

@@ -40,6 +40,8 @@ using Teamcenter.Soa.Client;
 using Teamcenter.Services.Loose.Core._2006_03.FileManagement;
 using System.IO;
 using Newtonsoft.Json.Linq;
+using System.Text.RegularExpressions;
+
 
 namespace soa.Controllers
 {
@@ -47,10 +49,6 @@ namespace soa.Controllers
     {
 
         /// <summary>
-        ///     未完成：1.额外属性 自制外购 类型，还未对应实体环境的扩展字段，暂用user_data_2替代。
-        ///     未完成：2.新增查询构建器，查询当前ITEM最新的版本
-        ///     完成：3.根据ModelObject获取相应的属性
-        ///     完成：4.在TC新增发布流程
         /// </summary>
         /// <param name="itemType">创建TC中ITEM的类型</param>
         /// <param name="codeNumber">物料号</param>
@@ -76,7 +74,6 @@ namespace soa.Controllers
                 DataManagementService dmService = DataManagementService.getService(Session.getConnection());
 
                 //查询最新的ITEM版本
-                //未完成2
                 //ModelObject LastestRevision = findModel("MY_WEB_ITEM_REVISION", new string[] { "iid" }, new string[] { codeNumber });
                 ModelObject LastestRevision = findModel(cfg.get("query_builder_lastestRevisionById_name")
                     , new string[] { cfg.get("query_builder_lastestRevisionById_queryKey") }, new string[] { codeNumber });
@@ -131,19 +128,13 @@ namespace soa.Controllers
                     itemProperty.Description = "";    //描述
                     itemProperty.Uom = unit;  //单位
 
-                    //增加额外属性
+                    //增加额外属性-对于同一个form，只用一次ExtendedAttributes，多个属性写在Hashtable上
                     ExtendedAttributes exAttr = new ExtendedAttributes();
                     exAttr.Attributes = new Hashtable();
                     exAttr.ObjectType = itemType + "RevisionMaster";      //对应哪个form表
-                    exAttr.Attributes[cfg.get("exAttr_productionType")] = productionType;  //需要替换
+                    exAttr.Attributes[cfg.get("exAttr_productionType")] = productionType;
+                    exAttr.Attributes[cfg.get("exAttr_detail")] = longDetail;
 
-                    //增加额外属性
-                    ExtendedAttributes exAttr2 = new ExtendedAttributes();
-                    exAttr2.Attributes = new Hashtable();
-                    exAttr2.ObjectType = itemType + "RevisionMaster";      //对应哪个form表
-                    exAttr2.Attributes[cfg.get("exAttr_detail")] = longDetail;  //需要替换
-
-                    itemProperty.ExtendedAttributes = new ExtendedAttributes[] { exAttr, exAttr2 };
 
                     //链接服务器创建Item
                     CreateItemsResponse response = dmService.CreateItems(new ItemProperties[] { itemProperty }, null, "");
@@ -541,6 +532,87 @@ namespace soa.Controllers
             return datasets;
         }
 
+
+        /// <summary>
+        /// 将OldFolder文件夹下的modelObjects剪切到NewFolder文件夹下。
+        /// 如果OldFolder=null，则是将modelObjects复制到NewFolder文件夹下。
+        /// </summary>
+        /// <param name="NewFolder">新文件夹</param>
+        /// <param name="OldFolder">旧文件夹，可以等于null</param>
+        /// <param name="modelObjects">移动的内容</param>
+        public void MoveFile(Teamcenter.Soa.Client.Model.Strong.Folder NewFolder
+            , Teamcenter.Soa.Client.Model.Strong.Folder OldFolder
+            , ModelObject[] modelObjects)
+        {
+            DataManagementService dmService = DataManagementService.getService(Session.getConnection());
+            var mtf = new Teamcenter.Services.Strong.Core._2007_01.DataManagement.MoveToNewFolderInfo();
+            mtf.NewFolder = NewFolder;
+            mtf.ObjectsToMove = modelObjects;
+            mtf.OldFolder = OldFolder;
+            dmService.MoveToNewFolder(new Teamcenter.Services.Strong.Core._2007_01.DataManagement.MoveToNewFolderInfo[] { mtf });
+        }
+
+
+        /// <summary>
+        /// 找TC的文件位置，如果没有则创建。
+        /// 如："10原材料-1011钢材"，分隔符为"-"，根目录为"XY"。
+        /// 最终会返回 XY-->10原材料文件夹目录中的1011钢材文件夹。
+        /// XY
+        ///  |
+        ///  --10原材料
+        ///     |
+        ///     ---1011钢材
+        /// </summary>
+        /// <param name="FolderName">文件夹路径</param>
+        /// <param name="RootFolder">根目录</param>
+        /// <param name="SplitStr">文件夹路径分隔符</param>
+        /// <returns></returns>
+        public ModelObject findFolder(string FolderName, ModelObject RootFolder, string SplitStr)
+        {
+            ModelObject resul = null;
+
+            var arry = Regex.Split(FolderName, SplitStr, RegexOptions.IgnoreCase);
+
+
+            //取第一层级
+            var CurrentFolderName = arry[0];
+
+
+            DataManagementService dmService = DataManagementService.getService(Session.getConnection());
+
+            dmService.GetProperties(new ModelObject[] { RootFolder }, new string[] { "contents" });
+            var contents = ((Teamcenter.Soa.Client.Model.Strong.Folder)RootFolder).Contents;
+            for (int i = 0, len = contents.Length; i < len; i++)
+            {
+                if (contents[i].Object_string.Equals(CurrentFolderName))
+                {
+                    resul = contents[i];
+                    break;
+                }
+            }
+            if (null == resul)
+            {
+                //创建文件夹
+                var cf = new Teamcenter.Services.Strong.Core._2006_03.DataManagement.CreateFolderInput();
+                cf.Name = CurrentFolderName;
+                cf.Desc = @"XY_GROUP";
+                Teamcenter.Services.Strong.Core._2006_03.DataManagement.CreateFoldersResponse cfr = dmService.CreateFolders(new Teamcenter.Services.Strong.Core._2006_03.DataManagement.CreateFolderInput[] { cf }, RootFolder, "child");
+                resul = cfr.Output[0].Folder;
+            }
+
+            //如果分组后数组大于1，则递归
+            if (arry.Length > 1)
+            {
+                arry[0] = "";
+                string RestStr = string.Join(SplitStr, arry);
+                RestStr = RestStr.Substring(SplitStr.Length, RestStr.Length - SplitStr.Length);
+                return findFolder(RestStr, resul, SplitStr);
+            }
+            else
+            {
+                return resul;
+            }
+        }
 
         private void createRelations(ModelObject modObjprimary, ModelObject modObjSecondary, String sRelationName)
         {

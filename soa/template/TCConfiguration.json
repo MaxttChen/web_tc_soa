@@ -1,7 +1,7 @@
 ﻿{
   "ip": "http://193.1.11.128:7001/tc",
-  "dbname": "infodba",
-  "dbpassword": "infodba",
+  "dbname": "test",
+  "dbpassword": "test00",
   "powerful_user_name": "plm005",
   "powerful_user_password": "plm005",
   "query_builder_lastestRevisionById_name": "MY_WEB_ITEM_REVISION",
