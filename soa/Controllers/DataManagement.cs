@@ -57,7 +57,7 @@ namespace soa.Controllers
         /// <param name="unit">单位</param>
         /// <param name="productionType">物料属性（自制、外购、委外）</param>
         /// <param name="ReqName">物料申请人</param>
-        public String createTCItem(String codeNumber, String CodeName, String longDetail, String unit, String productionType, String ReqName)
+        public String createTCItem(String codeNumber, String CodeName, String longDetail, String unit, String productionType, String ReqName,String group)
         {
             String erroMsg = "";
             //处理详细描述,10-79插入详细描述，80-90不插入详细描述
@@ -135,10 +135,18 @@ namespace soa.Controllers
                     exAttr.Attributes[cfg.get("exAttr_productionType")] = productionType;
                     exAttr.Attributes[cfg.get("exAttr_detail")] = longDetail;
 
+                    itemProperty.ExtendedAttributes = new ExtendedAttributes[] { exAttr };
+
+                    //创建前查找文件路径
+                    var RootFile = (Teamcenter.Soa.Client.Model.Strong.Folder)findModel(cfg.get("query_builder_folder_name")
+                        , new string[] { cfg.get("query_builder_folder_queryKey1"), cfg.get("query_builder_folder_queryKey2") }
+                        , new string[] { cfg.get("query_builder_folder_queryval1"), cfg.get("query_builder_folder_queryval2") });
+
+                    var TargetFolder = findFolder(group, RootFile, cfg.get("group_split_flag"));
 
                     //链接服务器创建Item
-                    CreateItemsResponse response = dmService.CreateItems(new ItemProperties[] { itemProperty }, null, "");
-
+                    CreateItemsResponse response = dmService.CreateItems(new ItemProperties[] { itemProperty }, TargetFolder, "contents");
+                    //CreateItemsResponse response = dmService.CreateItems(new ItemProperties[] { itemProperty }, null, "");
                     if (response.ServiceData.sizeOfPartialErrors() > 0)
                     {
                         return "创建ITEM失败。" + response.ServiceData.GetPartialError(0).Messages[0];
@@ -167,10 +175,13 @@ namespace soa.Controllers
                         {
                             var uploadCfg = JObject.Parse(uploadObj.ToString());
                             ModelObject datasets_temp = createEmptyFile(uploadCfg["datasetType"].ToString()
-                                , uploadCfg["fileType"].ToString() + "/" + codeNumber
+                                , codeNumber
                                 , uploadCfg["filePath"].ToString()
-                                , uploadCfg["fileRefName"].ToString());
-                            createRelations(itemReversion2add, datasets_temp, uploadCfg["relationType"].ToString());
+                                , uploadCfg["fileRefName"].ToString()
+                                , itemReversion2add
+                                , uploadCfg["relationType"].ToString()
+                                );
+                            //createRelations(itemReversion2add, datasets_temp, uploadCfg["relationType"].ToString());
                             changeOnwer(ReqName, datasets_temp);
                         }
                     }
@@ -209,7 +220,6 @@ namespace soa.Controllers
             DataManagementService dmService = DataManagementService.getService(Session2.getConnection());
             try
             {
-                //未完成2
                 ModelObject itemReversion = findModel(cfg.get("query_builder_lastestRevisionById_name")
                     , new string[] { cfg.get("query_builder_lastestRevisionById_queryKey") }, new string[] { "JLD100158" });
                 var data = dmService.GetProperties(new ModelObject[] { itemReversion }, new string[] { "WL_REV_013" });
@@ -303,6 +313,7 @@ namespace soa.Controllers
             PropertyNameValueInfo info2 = new PropertyNameValueInfo();
             info2.PropertyName = cfg.get("exAttr_detail");
             info2.PropertyValues = new string[] { longDetail };
+
 
             rev.NewItemRevisionMasterProperties.PropertyValueInfo = new PropertyNameValueInfo[] { info, info2 };
 
@@ -478,22 +489,24 @@ namespace soa.Controllers
             }
         }
 
-        public ModelObject createEmptyFile(String datasetType, String datasetName, String filePath, String fileRefName)
+        public ModelObject createEmptyFile(String datasetType, String datasetName, String filePath, String fileRefName,ModelObject container,String relationType)
         {
             var dmService = DataManagementService.getService(Session.getConnection());
-            FileManagementUtility fmsFileManagement = new FileManagementUtility(Session.getConnection(), null, null, new[] { "http://TC12:4544" }, "D:\\");
+            FileManagementUtility fmsFileManagement = new FileManagementUtility(Session.getConnection(), null, null, new[] { cfg.get("Fms_BootStrap_Urls") }, cfg.get("file_temp"));
+            //FileManagementUtility fmsFileManagement = new FileManagementUtility(Session.getConnection());
             // Create a Dataset
             DatasetProperties2 props = new DatasetProperties2();
             //props.ClientId = "datasetWriteTixTestClientId";
             //props.Type = "Text";
             //props.Name = "Sample-FMS-Upload-maxtt";
             //props.Description = "Testing put File";
-            props.ClientId = datasetName  + "ClientId";
+            props.ClientId = datasetName + "ClientId";
             props.Type = datasetType;
-            props.Name = datasetName ;
-            props.Description = "";
-            DatasetProperties2[] currProps = { props };
-            CreateDatasetsResponse resp = dmService.CreateDatasets2(currProps);
+            props.Name = datasetName;
+            props.Container = container;
+            props.RelationType = relationType;
+            CreateDatasetsResponse resp = dmService.CreateDatasets2(new DatasetProperties2[] { props });
+            
 
             // Create a file to associate with dataset
             var file = new FileInfo(filePath);
@@ -506,7 +519,7 @@ namespace soa.Controllers
             //fileInfo.FileName = "./template/url.txt";
             fileInfo.FileName = file.FullName;
             fileInfo.NamedReferencedName = fileRefName;
-            fileInfo.IsText = true;
+            fileInfo.IsText = false;
             fileInfo.AllowReplace = false;
 
             DatasetFileInfo[] fileInfos = { fileInfo };
@@ -584,7 +597,9 @@ namespace soa.Controllers
             var contents = ((Teamcenter.Soa.Client.Model.Strong.Folder)RootFolder).Contents;
             for (int i = 0, len = contents.Length; i < len; i++)
             {
-                if (contents[i].Object_string.Equals(CurrentFolderName))
+                if (contents[i].Object_string.Equals(CurrentFolderName)&& null != findModel(cfg.get("query_builder_folder_name")
+                        , new string[] { cfg.get("query_builder_folder_queryKey1"), cfg.get("query_builder_folder_queryKey2") }
+                        , new string[] { CurrentFolderName, "XY_GROUP" }))
                 {
                     resul = contents[i];
                     break;

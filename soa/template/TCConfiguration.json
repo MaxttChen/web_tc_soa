@@ -1,7 +1,10 @@
 ﻿{
   "ip": "http://193.1.11.128:7001/tc",
-  "dbname": "test",
-  "dbpassword": "test00",
+  "Fms_BootStrap_Urls_bak": "http://HGPLMTEST:4544",
+  "Fms_BootStrap_Urls": "http://193.1.11.128:4544",
+  "file_temp": "D:\\",
+  "dbname": "infodba",
+  "dbpassword": "infodba",
   "powerful_user_name": "plm005",
   "powerful_user_password": "plm005",
   "query_builder_lastestRevisionById_name": "MY_WEB_ITEM_REVISION",
@@ -10,6 +13,12 @@
   "query_builder_ItemById_queryKey": "Item ID",
   "query_builder_userByUname_name": "__WEB_find_user",
   "query_builder_userByUname_queryKey": "User ID",
+  "query_builder_folder_name": "MY_WEB_FOLDER",
+  "query_builder_folder_queryKey1": "fname",
+  "query_builder_folder_queryKey2": "fdesc",
+  "query_builder_folder_queryval1": "ITEM_ROOT",
+  "query_builder_folder_queryval2": "__XY_SYSTEM_ROOT",
+  "group_split_flag": "@",
   "LBJType": "HF8_LBJ",
   "CPTyep": "HF8_CP",
   "exAttr_productionType": "hf8_WL_REV_013",
@@ -20,14 +29,14 @@
   "uploadFile_part": [
     {
       "fileType": "par",
-      "datasetType": "Solid Edge Part",
+      "datasetType": "SE Part",
       "filePath": "./template/HG_part.par",
       "fileRefName": "SE-part",
       "relationType": "IMAN_specification"
     },
     {
       "fileType": "psm",
-      "datasetType": "Solid Edge Sheet Metal",
+      "datasetType": "SE SheetMetal",
       "filePath": "./template/HG_psm.psm",
       "fileRefName": "SE-sheetMetal",
       "relationType": "IMAN_specification"
@@ -36,7 +45,7 @@
   "uploadFile_asm": [
     {
       "fileType": "asm",
-      "datasetType": "Solid Edge Assembly",
+      "datasetType": "SE Assembly",
       "filePath": "./template/HG_asm.asm",
       "fileRefName": "SE-assembly",
       "relationType": "IMAN_specification"

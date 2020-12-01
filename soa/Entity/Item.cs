@@ -14,5 +14,7 @@ namespace soa.Entity
         public string proType { get; set; }
         public string reqName { get; set; }
 
+        public string group { get; set; }
+
     }
 }

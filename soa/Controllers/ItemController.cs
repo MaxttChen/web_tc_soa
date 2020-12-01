@@ -22,7 +22,7 @@ namespace soa.Controllers
                 var item = JObject.Parse(GetPostContent()).ToObject<Entity.Item>();
                 //AOP封装
                 result = Handle(() =>
-                new DataManagement().createTCItem(item.number, item.name, item.detail, item.unit, item.proType, item.reqName)
+                new DataManagement().createTCItem(item.number, item.name, item.detail, item.unit, item.proType, item.reqName,item.group)
                 );
             }
             catch(Exception e)
